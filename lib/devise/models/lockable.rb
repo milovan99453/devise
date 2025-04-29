@@ -116,16 +116,40 @@ module Devise
       
       def increment_failed_attempts
         if should_reset_failed_attempts_count?
-          update_columns(failed_attempts: 0)
+          self.failed_attempts = 0
+          save(validate: false)
           reload
         end
         self.class.increment_counter(:failed_attempts, id)
-        update_columns(last_failed_login: DateTime.now)
+        self.last_failed_login = DateTime.now
+        save(validate: false)
         reload
       end
 
+      # LAST_FAILED_LOGIN_WINDOW = 30.seconds
+      #
+      # # override method from devise module
+      # def unlock_access!
+      #   self.last_failed_login = nil
+      #   super
+      # end
+      #
+      # # override method from devise module
+      # def increment_failed_attempts
+      #   if should_reset_failed_attempts_count?
+      #     update_columns(failed_attempts: 0)
+      #   end
+      #   self.class.increment_counter(:failed_attempts, id)
+      #   update_columns(last_failed_login: DateTime.now)
+      # end
+      #
+      # def should_reset_failed_attempts_count?
+      #   !access_locked? && failed_attempts != 0 && last_failed_login.present? && last_failed_login < LAST_FAILED_LOGIN_WINDOW.ago
+      # end
+
       def should_reset_failed_attempts_count?
-        !access_locked? && self.failed_attempts != 0 && self.last_failed_login.present? && self.last_failed_login < LAST_FAILED_LOGIN_WINDOW.ago
+        reload
+        !access_locked? && failed_attempts != 0 && last_failed_login.present? && last_failed_login < LAST_FAILED_LOGIN_WINDOW.ago
       end
 
       def unauthenticated_message
