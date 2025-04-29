@@ -26,6 +26,8 @@ module Devise
 
       delegate :lock_strategy_enabled?, :unlock_strategy_enabled?, to: "self.class"
 
+      LAST_FAILED_LOGIN_WINDOW = 30.seconds
+
       def self.required_fields(klass)
         attributes = []
         attributes << :failed_attempts if klass.lock_strategy_enabled?(:failed_attempts)
@@ -51,6 +53,7 @@ module Devise
 
       # Unlock a user by cleaning locked_at and failed_attempts.
       def unlock_access!
+        self.last_failed_login = nil
         self.locked_at = nil
         self.failed_attempts = 0 if respond_to?(:failed_attempts=)
         self.unlock_token = nil  if respond_to?(:unlock_token=)
@@ -106,14 +109,22 @@ module Devise
             lock_access! unless access_locked?
           else
             save(validate: false)
+            reload
           end
           false
         end
       end
       
       def increment_failed_attempts
-        self.class.increment_counter(:failed_attempts, id)
-        reload
+        if should_reset_failed_attempts_count?
+          self.failed_attempts = 0
+        end
+        self.failed_attempts += 1
+        self.last_failed_login = DateTime.now
+      end
+
+      def should_reset_failed_attempts_count?
+        !access_locked? && self.failed_attempts != 0 && self.last_failed_login.present? && self.last_failed_login < LAST_FAILED_LOGIN_WINDOW.ago
       end
 
       def unauthenticated_message
