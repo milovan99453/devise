@@ -109,7 +109,6 @@ module Devise
             lock_access! unless access_locked?
           else
             save(validate: false)
-            reload
           end
           false
         end
@@ -117,10 +116,12 @@ module Devise
       
       def increment_failed_attempts
         if should_reset_failed_attempts_count?
-          self.failed_attempts = 0
+          update_columns(failed_attempts: 0)
+          reload
         end
-        self.failed_attempts += 1
-        self.last_failed_login = DateTime.now
+        self.class.increment_counter(:failed_attempts, id)
+        update_columns(last_failed_login: DateTime.now)
+        reload
       end
 
       def should_reset_failed_attempts_count?
